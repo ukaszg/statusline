@@ -99,9 +99,9 @@ readfile(char *base, char *file)
 
 	path = smprintf("%s/%s", base, file);
 	fd = fopen(path, "r");
+	free(path);
 	if (fd == NULL)
 		return NULL;
-	free(path);
 
 	if (fgets(line, sizeof(line)-1, fd) == NULL)
 		return NULL;
