@@ -35,9 +35,7 @@ func openFile(file_path string) (*bufio.Reader, FileCloser) {
 
 func getInt(r *bufio.Reader, token int) int {
 	var i int
-	var err error
-	var line string
-	line, err = r.ReadString('\n')
+	line, err := r.ReadString('\n')
 	chkerr(err)
 	i, err = strconv.Atoi(strings.Fields(line)[token])
 	chkerr(err)
