@@ -116,9 +116,20 @@ func Bar(inside_length int, value float64) string {
 	return strings.Join(ret, "") 
 }
 
+func Loadavg() string {
+	r, closer := open_file(LAVG)
+	line, err := r.ReadString('\n')
+	chkerr(err)
+	closer()
+	return strings.Join(strings.Fields(line)[:3], " ")
+}
+
+func Time() string {
+	return time.Now().Local().Format("Mon 2 Jan 15:04")
+}
+
 func main() {
-	//fmt.Println(Memory())
-	//fmt.Printf("%.1f%%", Cpu())
 	cpu := Cpu()
-	fmt.Printf("mem: %s | cpu: %s %.1f%%", Memory(), Bar(15, cpu), cpu )
+	fmt.Printf("mem: %s | cpu: %s %.1f%% | %s | %s\n",
+		Memory(), Bar(15, cpu), cpu, Loadavg(), Time() )
 }
