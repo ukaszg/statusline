@@ -81,7 +81,7 @@ func Cpu() float64 {
 	return ((stat / (td * 100)) * 100) / ncpu
 }
 
-func Memory() string {
+func Memory() float64 {
 	r, closer := open_file(MEM)
 	defer closer()
 
@@ -90,7 +90,7 @@ func Memory() string {
 	for i := 1; i <= 3; i++ {
 		memFree -= get_mem_stat(r)
 	}
-	return fmt.Sprintf("%d/%dMB", memFree/1024, memTotal/1024)
+	return float64(memFree) / float64(memTotal) * 100
 }
 
 var (
@@ -100,20 +100,23 @@ var (
 	BarFull  string = "|"
 )
 
-func Bar(inside_length int, value float64) string {
-	ret := make([]string, inside_length + len(BarStart) + len(BarEnd))
-	till := int( math.Ceil(( float64(inside_length) / 100.0 ) * value ) )
+func Bar(length int, value float64) string {
+	ret := make([]string, length)
+	inside_length := length - (len(BarStart) + len(BarEnd))
+	till := int(math.Ceil( (float64(inside_length) / 100.0) * value ))
 
 	ret = append(ret, BarStart)
-	for i := 0; i <= till; i++ {
-		ret = append(ret, BarFull)
+	for i := 1; i < length-2; i++ {
+		if i <= till {
+			ret = append(ret, BarFull)
+		} else {
+			ret = append(ret, BarEmpty)
+		}
 	}
-	for i := till; i < inside_length; i++ {
-		ret = append(ret, BarEmpty)
-	}
+
 	ret = append(ret, BarEnd)
 
-	return strings.Join(ret, "") 
+	return strings.Join(ret, "")
 }
 
 func Loadavg() string {
@@ -130,6 +133,7 @@ func Time() string {
 
 func main() {
 	cpu := Cpu()
-	fmt.Printf("mem: %s | cpu: %s %.1f%% | %s | %s\n",
-		Memory(), Bar(15, cpu), cpu, Loadavg(), Time() )
+	mem := Memory()
+	fmt.Printf("mem: %s %.1f%% | cpu: %s %.1f%%  %s | %s\n",
+		Bar(16, mem), mem, Bar(16, cpu), cpu, Loadavg(), Time() )
 }
