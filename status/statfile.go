@@ -23,13 +23,17 @@ type StatFile struct {
 	r *bufio.Reader
 	filename string
 }
-func(s *StatFile) Open() {
-	if (s.r != nil) {
-		return
+func(s *StatFile) Open() bool {
+	if s.r != nil {
+		return false
 	}
-	file, err := os.Open(s.filename)
-	chkerr(err)
-	s.r = bufio.NewReader(file)
+	if file, err := os.Open(s.filename); err != nil {
+		s.r = nil
+		return false
+	} else {
+		s.r = bufio.NewReader(file)
+	}
+	return true
 }
 func (s *StatFile) Close() {
 	if (s.r == nil) {

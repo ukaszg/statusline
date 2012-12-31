@@ -13,6 +13,7 @@ var (
 )
 
 type Percent float64
+const NONE Percent = -1.0
 
 func Bar(length int, value Percent) string {
 	ret := make([]string, length)
