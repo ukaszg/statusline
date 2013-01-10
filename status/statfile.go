@@ -22,6 +22,7 @@ type FieldFilter func([]string) []string
 type StatFile struct {
 	r *bufio.Reader
 	filename string
+	closer func()
 }
 func(s *StatFile) Open() bool {
 	if s.r != nil {
@@ -32,6 +33,7 @@ func(s *StatFile) Open() bool {
 		return false
 	} else {
 		s.r = bufio.NewReader(file)
+		s.closer = func(){ file.Close() }
 	}
 	return true
 }
@@ -39,10 +41,11 @@ func (s *StatFile) Close() {
 	if (s.r == nil) {
 		return
 	}
+	defer s.closer()
 	s.r = nil
 }
 func NewStatFile(file_path string) *StatFile {
-	return &StatFile{nil, file_path}
+	return &StatFile{nil, file_path, nil}
 }
 func (s *StatFile) Tokens() []string {
 	return strings.Fields(s.Line())
