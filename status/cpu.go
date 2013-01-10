@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"time"
 )
+
 var (
 	cpu_filter = func(s []string) []string { return s[1:4] }
 	ncpu       = float64(runtime.NumCPU())
@@ -13,6 +14,7 @@ type Cpu struct {
 	StatFile
 	Timeout time.Duration
 }
+
 func NewCpu(timeout time.Duration) *Cpu {
 	return &Cpu{*NewStatFile("/proc/stat"), timeout}
 }

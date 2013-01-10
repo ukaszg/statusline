@@ -1,10 +1,10 @@
 package status
 
 import (
+	"bufio"
 	"os"
 	"strconv"
 	"strings"
-	"bufio"
 )
 
 func chkerr(err error) {
@@ -18,13 +18,15 @@ func sum(i []int) (j int) {
 	}
 	return
 }
+
 type FieldFilter func([]string) []string
 type StatFile struct {
-	r *bufio.Reader
+	r        *bufio.Reader
 	filename string
-	closer func()
+	closer   func()
 }
-func(s *StatFile) Open() bool {
+
+func (s *StatFile) Open() bool {
 	if s.r != nil {
 		return false
 	}
@@ -33,12 +35,12 @@ func(s *StatFile) Open() bool {
 		return false
 	} else {
 		s.r = bufio.NewReader(file)
-		s.closer = func(){ file.Close() }
+		s.closer = func() { file.Close() }
 	}
 	return true
 }
 func (s *StatFile) Close() {
-	if (s.r == nil) {
+	if s.r == nil {
 		return
 	}
 	defer s.closer()

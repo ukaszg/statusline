@@ -7,27 +7,26 @@ import (
 )
 
 type BatteryStatus int
+
 const (
 	CHARGING BatteryStatus = iota
 	DISCHARGING
 	MISSING
 	UNKNOWN
+	FULL
 )
-var (
-	full_files = []string{`charge_full`, `energy_full`}
-	now_files = []string{`charge_now`, `energy_now`}
-	rate_files = []string{`current_now`, `power_now`}
-	present_files = []string{`present`}
-)
+
+
 type Battery struct {
-	stat map[string]*StatFile
-	variant string
+	stat     map[string]*StatFile
+	variant  string
 	dir_path string
 }
+
 func NewBattery(dir_path string, by_design bool) *Battery {
 	b := new(Battery)
 	if by_design {
-		b.variant = "_design" 
+		b.variant = "_design"
 	} else {
 		b.variant = ""
 	}
@@ -36,10 +35,10 @@ func NewBattery(dir_path string, by_design bool) *Battery {
 
 	return b
 }
-func (b *Battery) getval(cache_name string, filenames []string,  postfix string) (int, error) {
+func (b *Battery) getval(cache_name string, filenames []string, postfix string) (int, error) {
 	var (
 		stat *StatFile
-		ok bool
+		ok   bool
 	)
 	if stat, ok = b.stat[cache_name]; ok {
 		ok = stat.Open()
@@ -47,7 +46,7 @@ func (b *Battery) getval(cache_name string, filenames []string,  postfix string)
 	if !ok {
 		for _, file_name := range filenames {
 			stat = NewStatFile(b.dir_path + file_name + postfix)
-			if ok = stat.Open(); ok  {
+			if ok = stat.Open(); ok {
 				break
 			}
 		}
@@ -63,7 +62,7 @@ func (b *Battery) getval(cache_name string, filenames []string,  postfix string)
 	return stat.ToInts(func(s []string) []string { return s[0:1] })[0], nil
 }
 func (b *Battery) Present() (bool, error) {
-	if present, err := b.getval("present", present_files, ""); err != nil {
+	if present, err := b.getval("present", []string{`present`}, ""); err != nil {
 		return false, err
 	} else {
 		return (present == 1), nil
@@ -71,14 +70,15 @@ func (b *Battery) Present() (bool, error) {
 	panic("unreachable")
 }
 func (b *Battery) Full() (int, error) {
-	return b.getval("full", full_files, b.variant)
+	return b.getval("full", []string{`charge_full`, `energy_full`}, b.variant)
 }
 func (b *Battery) Now() (int, error) {
-	return b.getval("now", now_files, "")
+	return b.getval("now", []string{`charge_now`, `energy_now`}, "")
 }
 func (b *Battery) Rate() (int, error) {
-	return b.getval("rate", rate_files, "")
+	return b.getval("rate", []string{`current_now`, `power_now`}, "")
 }
+
 // Current battery state
 func (b *Battery) Get() Percent {
 	is_present, present_err := b.Present()
@@ -92,7 +92,7 @@ func (b *Battery) Get() Percent {
 func (b *Battery) Status() BatteryStatus {
 	var (
 		stat *StatFile
-		ok bool
+		ok   bool
 	)
 	if p, e := b.Present(); e != nil || !p {
 		return MISSING
@@ -106,8 +106,9 @@ func (b *Battery) Status() BatteryStatus {
 		switch strings.TrimSpace(stat.Line()) {
 		case "Discharging":
 			return DISCHARGING
-		case "Charging": fallthrough
-		case "Unknown":
+		case "Full":
+			return FULL
+		case "Charging":
 			return CHARGING
 		}
 	}
