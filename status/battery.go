@@ -19,23 +19,17 @@ const (
 
 type Battery struct {
 	stat     map[string]*StatFile
-	variant  string
 	dir_path string
 }
 
 func NewBattery(dir_path string, by_design bool) *Battery {
 	b := new(Battery)
-	if by_design {
-		b.variant = "_design"
-	} else {
-		b.variant = ""
-	}
 	b.dir_path = dir_path
 	b.stat = make(map[string]*StatFile)
 
 	return b
 }
-func (b *Battery) getval(cache_name string, filenames []string, postfix string) (int, error) {
+func (b *Battery) getval(cache_name string, filenames []string) (int, error) {
 	var (
 		stat *StatFile
 		ok   bool
@@ -45,7 +39,7 @@ func (b *Battery) getval(cache_name string, filenames []string, postfix string) 
 	}
 	if !ok {
 		for _, file_name := range filenames {
-			stat = NewStatFile(b.dir_path + file_name + postfix)
+			stat = NewStatFile(b.dir_path + file_name)
 			if ok = stat.Open(); ok {
 				break
 			}
@@ -55,14 +49,14 @@ func (b *Battery) getval(cache_name string, filenames []string, postfix string) 
 		} else {
 			delete(b.stat, cache_name)
 			return -1, errors.New(
-				fmt.Sprintf("No files were present:[%s] %s [%s]", b.dir_path, filenames, postfix))
+				fmt.Sprintf("No files were present:[%s] %s", b.dir_path, filenames))
 		}
 	}
 	defer stat.Close()
 	return stat.ToInts(func(s []string) []string { return s[0:1] })[0], nil
 }
 func (b *Battery) Present() (bool, error) {
-	if present, err := b.getval("present", []string{`present`}, ""); err != nil {
+	if present, err := b.getval("present", []string{`present`}); err != nil {
 		return false, err
 	} else {
 		return (present == 1), nil
@@ -70,15 +64,17 @@ func (b *Battery) Present() (bool, error) {
 	panic("unreachable")
 }
 func (b *Battery) Full() (int, error) {
-	return b.getval("full", []string{`charge_full`, `energy_full`}, b.variant)
+	return b.getval("full", []string{`charge_full`, `energy_full`})
+}
+func (b *Battery) Design() (int, error) {
+	return b.getval("design", []string{`charge_full_design`, `energy_full_design`})
 }
 func (b *Battery) Now() (int, error) {
-	return b.getval("now", []string{`charge_now`, `energy_now`}, "")
+	return b.getval("now", []string{`charge_now`, `energy_now`})
 }
 func (b *Battery) Rate() (int, error) {
-	return b.getval("rate", []string{`current_now`, `power_now`}, "")
+	return b.getval("rate", []string{`current_now`, `power_now`})
 }
-
 // Current battery state
 func (b *Battery) Get() Percent {
 	is_present, present_err := b.Present()
