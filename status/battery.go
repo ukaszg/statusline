@@ -1,56 +1,115 @@
 package status
 
-type Battery struct {
-	present   StatFile
-	full_1    StatFile
-	full_2    StatFile
-	now_1     StatFile
-	now_2     StatFile
-}
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
+type BatteryStatus int
+const (
+	CHARGING BatteryStatus = iota
+	DISCHARGING
+	MISSING
+	UNKNOWN
+)
+var (
+	full_files = []string{`charge_full`, `energy_full`}
+	now_files = []string{`charge_now`, `energy_now`}
+	rate_files = []string{`current_now`, `power_now`}
+	present_files = []string{`present`}
+)
+type Battery struct {
+	stat map[string]*StatFile
+	variant string
+	dir_path string
+}
 func NewBattery(dir_path string, by_design bool) *Battery {
 	b := new(Battery)
-	var variant string = ""
 	if by_design {
-		variant = "_design"
+		b.variant = "_design" 
+	} else {
+		b.variant = ""
 	}
-	b.full_1 = *NewStatFile(dir_path + "charge_full" + variant)
-	b.full_2 = *NewStatFile(dir_path + "energy_full" + variant)
-	b.now_1 = *NewStatFile(dir_path + "charge_now")
-	b.now_2 = *NewStatFile(dir_path + "energy_now")
-	b.present = *NewStatFile(dir_path + "present")
+	b.dir_path = dir_path
+	b.stat = make(map[string]*StatFile)
+
 	return b
 }
-
-var battery_filter = func(s []string) []string { return s[0:1] }
-
+func (b *Battery) getval(cache_name string, filenames []string,  postfix string) (int, error) {
+	var (
+		stat *StatFile
+		ok bool
+	)
+	if stat, ok = b.stat[cache_name]; ok {
+		ok = stat.Open()
+	}
+	if !ok {
+		for _, file_name := range filenames {
+			stat = NewStatFile(b.dir_path + file_name + postfix)
+			if ok = stat.Open(); ok  {
+				break
+			}
+		}
+		if ok {
+			b.stat[cache_name] = stat
+		} else {
+			delete(b.stat, cache_name)
+			return -1, errors.New(
+				fmt.Sprintf("No files were present:[%s] %s [%s]", b.dir_path, filenames, postfix))
+		}
+	}
+	defer stat.Close()
+	return stat.ToInts(func(s []string) []string { return s[0:1] })[0], nil
+}
+func (b *Battery) Present() (bool, error) {
+	if present, err := b.getval("present", present_files, ""); err != nil {
+		return false, err
+	} else {
+		return (present == 1), nil
+	}
+	panic("unreachable")
+}
+func (b *Battery) Full() (int, error) {
+	return b.getval("full", full_files, b.variant)
+}
+func (b *Battery) Now() (int, error) {
+	return b.getval("now", now_files, "")
+}
+func (b *Battery) Rate() (int, error) {
+	return b.getval("rate", rate_files, "")
+}
+// Current battery state
 func (b *Battery) Get() Percent {
-	b.present.Open()
-	defer b.present.Close()
-	if b.present.ToInts(battery_filter)[0] != 1 {
-		return NONE
+	is_present, present_err := b.Present()
+	now, err_now := b.Now()
+	full, err_full := b.Full()
+	if !is_present || present_err != nil || err_now != nil || err_full != nil {
+		return -1.0
 	}
-	var now, full int
-
-	if b.full_1.Open() {
-		defer b.full_1.Close()
-		full = b.full_1.ToInts(battery_filter)[0]
-	} else if b.full_2.Open() {
-		defer b.full_2.Close()
-		full = b.full_2.ToInts(battery_filter)[0]
-	} else {
-		return NONE
+	return Percent((float64(now) / float64(full)) * 100.0)
+}
+func (b *Battery) Status() BatteryStatus {
+	var (
+		stat *StatFile
+		ok bool
+	)
+	if p, e := b.Present(); e != nil || !p {
+		return MISSING
 	}
-
-	if b.now_1.Open() {
-		defer b.now_1.Close()
-		now = b.now_1.ToInts(battery_filter)[0]
-	} else if b.now_2.Open() {
-		defer b.now_2.Close()
-		now = b.now_2.ToInts(battery_filter)[0]
-	} else {
-		return NONE
+	if stat, ok = b.stat["status"]; !ok {
+		stat = NewStatFile(b.dir_path + "status")
 	}
-
-	return Percent( (float64(now) / float64(full)) * 100.0 )
+	if stat.Open() {
+		defer stat.Close()
+		b.stat["status"] = stat
+		switch strings.TrimSpace(stat.Line()) {
+		case "Discharging":
+			return DISCHARGING
+		case "Charging": fallthrough
+		case "Unknown":
+			return CHARGING
+		}
+	}
+	return UNKNOWN
 }
